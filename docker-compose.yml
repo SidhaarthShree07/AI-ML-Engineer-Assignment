@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  hybrid-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hybrid-auto-mle-agent:latest
+    container_name: hybrid-agent
+    
+    # GPU support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    # Environment variables
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    
+    # Resource limits (matching requirements: 24GB VRAM, 36 vCPUs, 440GB RAM)
+    shm_size: '16gb'
+    mem_limit: 440g
+    cpus: 36
+    
+    # Volumes for data and outputs
+    volumes:
+      - ./datasets:/workspace/datasets:ro
+      - ./outputs:/workspace/outputs
+      - ./logs:/workspace/logs
+    
+    # Working directory
+    working_dir: /workspace
+    
+    # Command (override with your specific arguments)
+    command: >
+      --dataset_path /workspace/datasets/example
+      --competition_id example-competition
+      --output_dir /workspace/outputs
+      --max_runtime_hours 24

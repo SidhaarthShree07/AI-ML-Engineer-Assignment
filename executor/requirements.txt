@@ -1,0 +1,34 @@
+# Core ML libraries
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.30.0
+lightgbm>=4.0.0
+xgboost>=2.0.0
+catboost>=1.2.0
+flaml>=2.0.0
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+
+# Image processing
+albumentations>=1.3.0
+Pillow>=10.0.0
+
+# Testing
+pytest>=7.4.0
+hypothesis>=6.80.0
+pytest-cov>=4.1.0
+
+# API and utilities
+google-generativeai>=0.3.0
+psutil>=5.9.0
+
+# Note: This project uses its own dataset handling via src/dataset/dataset_handler.py
+# No external benchmark framework dependencies required
+
+# Development
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.4.0
