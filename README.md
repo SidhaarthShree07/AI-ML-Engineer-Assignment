@@ -90,14 +90,14 @@ For the remaining 4 datasets in the MLEbench evaluation:
 
 | Dataset | Status | Constraint |
 |:--------|:------:|:-----------|
-| `text-normalization-challenge-english-language` | 🔄 Running | Code execution in progress |
+| `text-normalization-challenge-english-language` | 🔄 Running | Code execution in progress (Past 24 hrs) |
 | Other image/multimodal datasets | ⏸️ Pending | Requires GPU with high VRAM (16GB+) |
 | Large-scale datasets | ⏸️ Pending | Requires 200GB+ storage for dataset alone |
 
 **Hardware Limitations:**
 - Local machine lacks sufficient GPU VRAM for large vision models
 - Storage constraints prevent downloading datasets exceeding 200GB
-- Full evaluation requires cloud infrastructure (AWS/GCP with A100 GPUs)
+- Full evaluation requires cloud infrastructure (AWS/GCP with A10 GPUs)
 
 *The evaluation framework is fully functional - hardware resources are the limiting factor for complete benchmark execution.*
 
