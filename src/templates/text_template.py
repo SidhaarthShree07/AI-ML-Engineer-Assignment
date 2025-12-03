@@ -1,4 +1,11 @@
-"""Text classification strategy template with DistilBERT and TF-IDF fallback"""
+"""Text classification strategy template with DistilBERT and TF-IDF fallback
+
+Enhanced with:
+- Character n-grams (2-6) for writing style capture (spooky-author pattern)
+- CalibratedClassifierCV for probability calibration
+- Multi-class probability output (EAP/HPL/MWS format)
+- GPU acceleration for transformer models
+"""
 
 TEXT_DISTILBERT_TEMPLATE = """
 import torch
@@ -13,9 +20,12 @@ from sklearn.preprocessing import LabelEncoder
 import warnings
 warnings.filterwarnings('ignore')
 
-# Device configuration
+# Device configuration with GPU preference
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {{device}}")
+if torch.cuda.is_available():
+    print(f"GPU: {{torch.cuda.get_device_name(0)}}")
+    print(f"GPU Memory: {{torch.cuda.get_device_properties(0).total_memory / 1e9:.2f}} GB")
 
 # Custom Dataset
 class TextDataset(Dataset):
@@ -229,7 +239,7 @@ import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import VotingClassifier
+from sklearn.ensemble import VotingClassifier, GradientBoostingClassifier
 from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
 import lightgbm as lgb
@@ -237,6 +247,21 @@ from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 import warnings
 warnings.filterwarnings('ignore')
+
+# =============================================================================
+# GPU DETECTION FOR LIGHTGBM
+# =============================================================================
+def detect_gpu():
+    try:
+        import torch
+        if torch.cuda.is_available():
+            print(f"GPU detected: {{torch.cuda.get_device_name(0)}}")
+            return True
+    except ImportError:
+        pass
+    return False
+
+USE_GPU = detect_gpu()
 
 # Load data
 train_df = pd.read_csv('{train_path}')
@@ -268,27 +293,32 @@ else:
 num_classes = len(np.unique(y_train))
 print(f"Number of classes: {{num_classes}}")
 
-# TF-IDF Vectorization with character and word n-grams
-print("Creating TF-IDF features...")
+# =============================================================================
+# ENHANCED TF-IDF WITH CHARACTER N-GRAMS FOR WRITING STYLE
+# (Inspired by spooky-author-identification winning solutions)
+# =============================================================================
+print("Creating TF-IDF features with character n-grams for style capture...")
 
-# Word-level TF-IDF
+# Word-level TF-IDF with extended n-grams
 word_vectorizer = TfidfVectorizer(
-    max_features=15000,
+    max_features=20000,
     ngram_range=(1, 3),
     min_df=2,
     max_df=0.95,
     sublinear_tf=True,
-    analyzer='word'
+    analyzer='word',
+    token_pattern=r'\\b[a-zA-Z]+\\b'  # Only alphabetic tokens
 )
 
-# Character-level TF-IDF (captures writing style)
+# Character-level TF-IDF (2-6 grams) for writing style capture
+# This captures punctuation patterns, spacing, and character-level habits
 char_vectorizer = TfidfVectorizer(
-    max_features=10000,
-    ngram_range=(2, 6),
+    max_features=15000,
+    ngram_range=(2, 6),  # Extended range for style patterns
     min_df=2,
     max_df=0.95,
     sublinear_tf=True,
-    analyzer='char'
+    analyzer='char_wb'  # Character n-grams with word boundaries
 )
 
 X_train_word = word_vectorizer.fit_transform(X_train)
@@ -302,16 +332,16 @@ from scipy.sparse import hstack
 X_train_combined = hstack([X_train_word, X_train_char])
 X_test_combined = hstack([X_test_word, X_test_char])
 
+print(f"Word features: {{X_train_word.shape[1]}}")
+print(f"Char features: {{X_train_char.shape[1]}}")
 print(f"Combined feature shape: {{X_train_combined.shape}}")
 
-# Split for validation
-X_train_split, X_val_split, y_train_split, y_val_split = train_test_split(
-    X_train_combined, y_train, test_size=0.1, random_state={seed}, stratify=y_train
-)
+# =============================================================================
+# CALIBRATED ENSEMBLE WITH MULTIPLE CLASSIFIERS
+# =============================================================================
+print("Training calibrated ensemble model...")
 
-# Create ensemble models
-print("Training ensemble model...")
-
+# Logistic Regression with calibration
 lr_model = LogisticRegression(
     max_iter=1000,
     C=4.0,
@@ -321,17 +351,25 @@ lr_model = LogisticRegression(
     multi_class='multinomial'
 )
 
-lgb_model = lgb.LGBMClassifier(
-    n_estimators=500,
-    learning_rate=0.05,
-    num_leaves=31,
-    random_state={seed},
-    n_jobs=-1,
-    objective='multiclass',
-    num_class=num_classes
-)
+# LightGBM with GPU support and calibration
+lgb_params = {{
+    'n_estimators': 500,
+    'learning_rate': 0.05,
+    'num_leaves': 31,
+    'random_state': {seed},
+    'n_jobs': -1,
+    'objective': 'multiclass',
+    'num_class': num_classes
+}}
+if USE_GPU:
+    lgb_params['device'] = 'gpu'
+    lgb_params['gpu_use_dp'] = False
+    print("Using GPU acceleration for LightGBM")
 
-# LinearSVC with probability calibration
+lgb_base = lgb.LGBMClassifier(**lgb_params)
+lgb_model = CalibratedClassifierCV(lgb_base, cv=3, method='isotonic')
+
+# LinearSVC with probability calibration (sigmoid method for SVM)
 svc_base = LinearSVC(C=1.0, max_iter=10000, random_state={seed})
 svc_model = CalibratedClassifierCV(svc_base, cv=3, method='sigmoid')
 
@@ -352,17 +390,20 @@ ensemble.fit(X_train_combined, y_train)
 # Make probability predictions
 predictions = ensemble.predict_proba(X_test_combined)
 
-# Save predictions - handle both probability and class output formats
+# =============================================================================
+# SAVE PREDICTIONS IN COMPETITION-SPECIFIC FORMAT
+# =============================================================================
 if class_labels is not None and len(class_labels) > 2:
-    # Multi-class with probability outputs per class
+    # Multi-class with probability outputs per class (spooky-author format: EAP, HPL, MWS)
     submission = pd.DataFrame({{'id': test_ids}})
     for i, label in enumerate(class_labels):
         submission[label] = predictions[:, i]
+    print(f"Multi-class submission with columns: {{list(submission.columns)}}")
 else:
-    # Single prediction column
+    # Binary or single prediction column
     submission = pd.DataFrame({{
         '{id_column}': test_ids,
-        '{prediction_column}': predictions.argmax(axis=1) if predictions.ndim > 1 else predictions
+        '{prediction_column}': predictions[:, 1] if predictions.shape[1] == 2 else predictions.argmax(axis=1)
     }})
 
 submission.to_csv('submission.csv', index=False)
@@ -545,18 +586,17 @@ print("Training and inference complete")
 
 def get_text_template(use_fallback: bool = False, resource_constrained: bool = False) -> str:
     """
-    Get appropriate text template based on requirements.
+    Get text template.
     
     Args:
         use_fallback: Whether to use TF-IDF fallback instead of DistilBERT
-        resource_constrained: Whether to use resource-constrained variant
+        resource_constrained: Ignored - always use full template
         
     Returns:
         Template string
     """
     if use_fallback:
         return TEXT_TFIDF_FALLBACK_TEMPLATE
-    elif resource_constrained:
-        return TEXT_RESOURCE_CONSTRAINED_TEMPLATE
     else:
+        # Always use the full DistilBERT template - LLM optimizes as needed
         return TEXT_DISTILBERT_TEMPLATE

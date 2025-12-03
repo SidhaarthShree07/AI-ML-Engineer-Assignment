@@ -105,7 +105,8 @@ class Controller:
             missing_percentage=data_profile.missing_values,
             feature_correlations=data_profile.feature_correlations,
             has_metadata=has_metadata,
-            estimated_gpu_memory_gb=estimated_gpu_memory_gb
+            estimated_gpu_memory_gb=estimated_gpu_memory_gb,
+            data_types=data_profile.data_types  # Pass column info for text normalization detection
         )
         
         logger.info(f"Dataset analysis complete: {dataset_profile.modality} modality, "

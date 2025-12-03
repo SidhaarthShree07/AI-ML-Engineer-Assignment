@@ -9,9 +9,10 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-from src.models.data_models import AgentConfig, ResourceConstraints
+from src.models.data_models import AgentConfig, ResourceConstraints, ExecutionMode
 from src.controller.controller import Controller
 from src.executor.executor import Executor, DockerConfig
+from src.executor.cloud_executor import CloudExecutor, CloudConfig, create_cloud_executor
 from src.state_manager.state_manager import StateManager
 from src.submission.submission_generator import SubmissionGenerator
 from src.utils.gemini_client import GeminiClient
@@ -164,17 +165,24 @@ class HybridAutoMLEAgent:
             output_data={"session_dir": session_dir}
         )
         
-        # Initialize Gemini client
+        # Initialize Gemini client - REQUIRED for code generation
         gemini_api_key = self.config.gemini_api_key or os.environ.get("GEMINI_API_KEY")
         if not gemini_api_key:
-            logger.warning("No Gemini API key provided - running without LLM enhancement")
-            self.gemini_client = None
-        else:
-            self.gemini_client = GeminiClient(
-                api_key=gemini_api_key,
-                model=self.config.gemini_model
+            error_msg = (
+                "GEMINI_API_KEY is required but not set!\n"
+                "Please set it via:\n"
+                "  PowerShell: $env:GEMINI_API_KEY = 'your-key-here'\n"
+                "  Bash: export GEMINI_API_KEY='your-key-here'\n"
+                "Get a free key at: https://aistudio.google.com/app/apikey"
             )
-            logger.info(f"Gemini client initialized with model: {self.config.gemini_model}")
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
+        self.gemini_client = GeminiClient(
+            api_key=gemini_api_key,
+            model=self.config.gemini_model
+        )
+        logger.info(f"Gemini client initialized with model: {self.config.gemini_model}")
         
         # Initialize Controller
         self.controller = Controller(
@@ -188,17 +196,42 @@ class HybridAutoMLEAgent:
             max_iterations=3  # Max 3 enhancement iterations
         )
         
-        # Initialize Executor with Docker
-        # Limit CPU count to 32 max (Docker limit on most systems)
-        cpu_count = min(float(self.config.resource_constraints.max_cpu_cores), 32.0)
-        docker_config = DockerConfig(
-            image="ml-sandbox:latest",
-            gpu_enabled=True,
-            memory_limit=f"{int(self.config.resource_constraints.max_ram_gb)}g",
-            cpu_count=cpu_count,
-            use_docker=True  # Set to False to disable Docker and run locally
-        )
-        self.executor = Executor(docker_config)
+        # Initialize Executor based on execution mode
+        if self.config.execution_mode == "cloud":
+            # Cloud mode: Use local Colab kernel via notebook
+            logger.info("Initializing Cloud Executor for local Colab kernel execution")
+            
+            # Get execution method from config
+            use_papermill = getattr(self.config, 'use_papermill', False)
+            
+            logger.info(f"  Execution Method: {'Papermill (local)' if use_papermill else 'Polling (Colab)'}")
+            
+            # Use fixed notebook path for Colab execution
+            fixed_notebook_path = r"D:\Hexo.ai Project\executor\workspace\Generated code.ipynb"
+            logger.info(f"  Using fixed notebook: {fixed_notebook_path}")
+            
+            # Create cloud executor with configuration
+            self.executor = create_cloud_executor(
+                workspace_dir=session_dir,
+                notebook_path=fixed_notebook_path,  # Use existing notebook
+                local_output_dir=session_dir,
+                use_papermill=use_papermill,
+                poll_interval=10.0,  # Check every 10 seconds
+                max_wait_time=self.config.max_runtime_hours * 3600 if self.config.max_runtime_hours > 0 else 14400
+            )
+        else:
+            # Normal mode: Use Docker or local execution
+            logger.info("Initializing Docker Executor for local/container execution")
+            # Limit CPU count to 32 max (Docker limit on most systems)
+            cpu_count = min(float(self.config.resource_constraints.max_cpu_cores), 32.0)
+            docker_config = DockerConfig(
+                image="ml-sandbox:latest",
+                gpu_enabled=True,
+                memory_limit=f"{int(self.config.resource_constraints.max_ram_gb)}g",
+                cpu_count=cpu_count,
+                use_docker=True  # Set to False to disable Docker and run locally
+            )
+            self.executor = Executor(docker_config)
         
         # Initialize ErrorHandler
         self.error_handler = ErrorHandler(
@@ -352,7 +385,8 @@ class HybridAutoMLEAgent:
             "output_dir": os.path.join(self.config.output_dir, f"session_{self.session_id}"),
             "num_samples": self.dataset_profile.num_samples,
             "num_features": self.dataset_profile.num_features,
-            "time_budget": 3600  # 1 hour for FLAML
+            "time_budget": 3600,  # 1 hour for FLAML
+            "seed": self.config.seed  # Pass seed for reproducibility
         }
         
         self.training_code = self.controller.generate_code(
@@ -438,11 +472,20 @@ class HybridAutoMLEAgent:
             
             # Execute training code with real-time output
             # CRITICAL: Controller never executes code - always delegate to Executor
+            # In cloud mode with generate_only, this will just generate the notebook
+            generate_only = getattr(self.config, 'generate_only', False) if self.config.execution_mode == "cloud" else False
+            
             self.execution_result = self.executor.execute_code(
                 code=current_code,
                 timeout=timeout_seconds,
-                show_progress=True
+                show_progress=True,
+                generate_only=generate_only
             )
+            
+            # If generate_only, exit the loop after first iteration
+            if generate_only and self.execution_result.success:
+                logger.info("[GENERATE_ONLY] Notebook generated successfully, exiting execution phase")
+                break
             
             # Log execution result
             self.state_manager.log_action(
@@ -659,12 +702,42 @@ def parse_args():
         help="Output directory for results"
     )
     
+    # Execution mode (mutually exclusive)
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "-n", "--normal",
+        action="store_true",
+        default=True,
+        help="Normal execution mode (local/Docker) [default]"
+    )
+    mode_group.add_argument(
+        "-c", "--cloud",
+        action="store_true",
+        help="Cloud execution mode (local Colab kernel via notebook)"
+    )
+    parser.add_argument(
+        "--use_papermill",
+        action="store_true",
+        help="Use papermill for local Jupyter kernel execution (default: polling for Colab)"
+    )
+    parser.add_argument(
+        "--generate_only",
+        action="store_true",
+        help="In cloud mode, only generate notebook without waiting for execution (for watch mode)"
+    )
+    
     # Optional arguments
     parser.add_argument(
         "--max_runtime_hours",
         type=float,
         default=24.0,
         help="Maximum runtime in hours (default: 24, set to 0 for no limit)"
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducibility (default: 42)"
     )
     parser.add_argument(
         "--num_seeds",
@@ -675,7 +748,7 @@ def parse_args():
     parser.add_argument(
         "--gemini_model",
         type=str,
-        default="gemini-2.0-flash",
+        default="gemini-2.5-pro",
         help="Gemini model to use (default: gemini-2.0-flash)"
     )
     parser.add_argument(
@@ -690,7 +763,13 @@ def parse_args():
         help="List of competitions for eval mode"
     )
     
-    return parser.parse_args()
+    args = parser.parse_args()
+    
+    # Handle mutually exclusive: if --cloud is set, normal should be False
+    if args.cloud:
+        args.normal = False
+    
+    return args
 
 
 def main():
@@ -708,6 +787,34 @@ def main():
     # Get Gemini API key from environment
     gemini_api_key = os.environ.get("GEMINI_API_KEY")
     
+    # Set random seeds for reproducibility
+    import random
+    import numpy as np
+    seed = args.seed
+    random.seed(seed)
+    np.random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    
+    # Set torch seeds if available
+    try:
+        import torch
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+        logger.info(f"Set random seed: {seed} (torch available)")
+    except ImportError:
+        logger.info(f"Set random seed: {seed} (torch not available)")
+    
+    # Determine execution mode
+    execution_mode = "cloud" if args.cloud else "normal"
+    logger.info(f"Execution mode: {execution_mode}")
+    
+    if execution_mode == "cloud":
+        logger.info(f"  Use Papermill: {args.use_papermill}")
+    
     # Create agent configuration
     config = AgentConfig(
         dataset_path=args.dataset_path,
@@ -715,10 +822,14 @@ def main():
         output_dir=args.output_dir,
         max_runtime_hours=args.max_runtime_hours,
         num_seeds=args.num_seeds,
+        seed=args.seed,
+        execution_mode=execution_mode,
         gemini_model=args.gemini_model,
         gemini_api_key=gemini_api_key,
         eval_mode=args.eval_mode,
-        competitions=args.competitions or []
+        competitions=args.competitions or [],
+        use_papermill=args.use_papermill,
+        generate_only=args.generate_only
     )
     
     # Create and run agent

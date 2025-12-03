@@ -6,7 +6,7 @@ Get HybridAutoMLE running in 5 minutes on **Windows**, **macOS**, or **Linux**.
 
 - **Python 3.10+** (3.8+ minimum)
 - **Docker** (optional, for isolated execution)
-- **Gemini API key** (optional, for LLM enhancement)
+- **Gemini API key** (REQUIRED for code generation)
 - **CUDA 11.8+** (optional, for GPU support)
 
 ## Installation
@@ -18,7 +18,7 @@ Get HybridAutoMLE running in 5 minutes on **Windows**, **macOS**, or **Linux**.
 pip install -r requirements.txt
 ```
 
-### Step 2: Set Gemini API Key (Optional)
+### Step 2: Set Gemini API Key (REQUIRED)
 
 **Linux/macOS:**
 ```bash
@@ -35,6 +35,8 @@ $env:GEMINI_API_KEY="your-api-key-here"
 set GEMINI_API_KEY=your-api-key-here
 ```
 
+Get a free Gemini API key at: https://aistudio.google.com/app/apikey
+
 ### Step 3: Build Docker Image (Optional)
 
 **All Platforms:**
@@ -42,17 +44,54 @@ set GEMINI_API_KEY=your-api-key-here
 docker build -t ml-sandbox:latest -f executor/Dockerfile .
 ```
 
-## Quick Start: Run Your First Agent
+## Execution Modes
 
-**All Platforms:**
+### Normal Mode (Local/Docker)
+Runs the agent locally or in a Docker container:
 ```bash
-python hybrid_agent.py --dataset_path ./data/your-dataset --competition_id your-competition-id --output_dir ./results
+python run_mlebench_eval.py --data_root ./data --competitions tabular-playground-series-may-2022 --seeds 0 -n
 ```
 
-**What this does:**
-- Analyzes your dataset and detects modality automatically
-- Runs with default 24 hour time limit (set to 0 for no limit)
-- Outputs results to `./results` directory
+### Cloud Mode (Local Colab Kernel)
+Generates a Jupyter notebook for execution with a Colab kernel connected to VS Code:
+```bash
+python run_mlebench_eval.py --data_root ./data --competitions tabular-playground-series-may-2022 --seeds 0 -c
+```
+
+### Watch Mode (Auto-Evaluation Loop)
+**NEW!** Automatically watches for submission.csv and triggers evaluation with medal metrics:
+```bash
+python run_mlebench_eval.py --data_root ./data --competitions tabular-playground-series-may-2022 --seeds 0 1 2 -c -w
+```
+
+**Watch Mode Workflow:**
+1. Agent generates notebook at `executor/workspace/Generated code.ipynb`
+2. You run the notebook in Colab (connected to VS Code)
+3. Watcher detects `submission.csv` when it appears in session folder
+4. Evaluates submission and generates medal metrics
+5. Automatically increments seed and generates next notebook
+6. Repeats until all seeds are complete
+
+## Quick Start Examples
+
+### Single Competition, Single Seed
+```powershell
+# Windows PowerShell
+$env:GEMINI_API_KEY="your-key"
+python run_mlebench_eval.py --data_root "D:\Hexo.ai Project\.data" --competitions tabular-playground-series-may-2022 --seeds 0 -c
+```
+
+### Full Evaluation with Watch Mode
+```powershell
+# Windows PowerShell - runs 3 seeds with auto-evaluation
+$env:GEMINI_API_KEY="your-key"
+python run_mlebench_eval.py --data_root "D:\Hexo.ai Project\.data" --competitions tabular-playground-series-may-2022 --seeds 0 1 2 -c -w
+```
+
+### Multiple Competitions
+```bash
+python run_mlebench_eval.py --data_root ./data --competitions tabular-playground-series-may-2022 spooky-author-identification -c -w
+```
 
 ## What Happens Next?
 

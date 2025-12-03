@@ -475,7 +475,7 @@ class HybridModalityDetector:
             return heuristic
         
         prompt = f"""
-Analyze this dataset and determine its modality (tabular, image, text, time_series, or multimodal).
+Analyze this dataset and determine its modality (tabular, image, text, time_series, multimodal, seq2seq, or audio).
 
 HEURISTIC DETECTION: {heuristic}
 
@@ -487,9 +487,17 @@ DATA PROFILE:
 - Data types: {profile.data_types}
 - Target distribution: {profile.target_distribution}
 
+MODALITY HINTS:
+- seq2seq: Datasets with 'before'/'after' or 'source'/'target' columns (e.g., text normalization, translation)
+- audio: Datasets with audio file paths (.wav, .aif, .mp3) or 'clip' column (e.g., whale detection)
+- text: Datasets with 'text', 'review', 'comment' columns for classification
+- tabular: Standard numeric/categorical feature datasets
+- image: Datasets with image file paths or image directories
+- time_series: Datasets with temporal patterns or date/time columns
+
 Based on this information, what is the most accurate modality classification?
 
-Respond with ONLY one word: tabular, image, text, time_series, or multimodal
+Respond with ONLY one word: tabular, image, text, time_series, multimodal, seq2seq, or audio
 """
         
         try:
@@ -521,6 +529,17 @@ Respond with ONLY one word: tabular, image, text, time_series, or multimodal
         object_cols = sum(1 for dtype in profile.data_types.values() if 'object' in dtype)
         numeric_cols = sum(1 for dtype in profile.data_types.values() 
                           if any(t in dtype for t in ['int', 'float']))
+        
+        # Check for seq2seq patterns in column names
+        column_names = [col.lower() for col in profile.data_types.keys()]
+        has_before_after = ('before' in column_names and 'after' in column_names) or \
+                          ('source' in column_names and 'target' in column_names) or \
+                          ('input' in column_names and 'output' in column_names)
+        has_class_column = 'class' in column_names
+        
+        # Seq2seq detection: before/after or source/target pattern
+        if has_before_after:
+            return Modality.SEQ2SEQ.value
         
         # High ratio of object columns suggests text or image paths
         if object_cols > numeric_cols and object_cols > 2:

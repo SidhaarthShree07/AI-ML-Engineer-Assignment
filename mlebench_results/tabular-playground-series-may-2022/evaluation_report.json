@@ -1,0 +1,37 @@
+{
+  "competition_id": "tabular-playground-series-may-2022",
+  "total_seeds": 3,
+  "total_runs": 3,
+  "submissions": 3,
+  "medals": {
+    "gold": 0,
+    "silver": 0,
+    "bronze": 0,
+    "total": 0
+  },
+  "any_medal_percent": 0.0,
+  "results": [
+    {
+      "seed": 42,
+      "has_submission": true,
+      "score": 0.99518,
+      "medal": "none",
+      "is_medal": false
+    },
+    {
+      "seed": 43,
+      "has_submission": true,
+      "score": 0.98519,
+      "medal": "none",
+      "is_medal": false
+    },
+    {
+      "seed": 44,
+      "has_submission": true,
+      "score": 0.99163,
+      "medal": "none",
+      "is_medal": false
+    }
+  ],
+  "timestamp": "2025-12-03T10:35:56.339621"
+}

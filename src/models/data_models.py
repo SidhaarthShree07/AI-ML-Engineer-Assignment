@@ -37,6 +37,7 @@ class DatasetProfile:
     feature_correlations: Dict[str, float]
     has_metadata: bool
     estimated_gpu_memory_gb: float
+    data_types: Optional[Dict[str, str]] = None  # Column name -> data type mapping
 
 
 @dataclass
@@ -166,6 +167,12 @@ class PerformanceData:
     issue_type: str
 
 
+class ExecutionMode(str, Enum):
+    """Execution mode types"""
+    NORMAL = "normal"  # Local/Docker execution
+    CLOUD = "cloud"    # Google Colab execution via notebook
+
+
 @dataclass
 class AgentConfig:
     """Agent configuration for dataset processing"""
@@ -174,12 +181,16 @@ class AgentConfig:
     output_dir: str
     max_runtime_hours: float = 24.0
     num_seeds: int = 3
-    gemini_model: str = "gemini-2.0-flash"
+    seed: int = 42  # Random seed for reproducibility
+    execution_mode: str = "normal"  # "normal" or "cloud"
+    gemini_model: str = "gemini-2.5-pro"
     gemini_api_key: Optional[str] = None
     eval_mode: bool = False
     competitions: List[str] = field(default_factory=list)
     docker_image: str = "hybrid-automle:latest"
     resource_constraints: Optional[ResourceConstraints] = None
+    use_papermill: bool = False  # Use papermill for local kernel, False for Colab polling
+    generate_only: bool = False  # If True in cloud mode, only generate notebook without waiting
     
     def __post_init__(self):
         """Initialize resource constraints with runtime from config"""

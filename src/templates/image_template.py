@@ -1,4 +1,12 @@
-"""Image classification strategy template with EfficientNet and augmentation"""
+"""Image classification strategy template with EfficientNet and augmentation
+
+Enhanced with:
+- Class weighting for imbalanced datasets (melanoma pattern)
+- Heavy augmentation pipeline (flip, rotate, CoarseDropout, color jitter)
+- GPU-accelerated data loading with pin_memory
+- TFRecord-style efficient data pipeline
+- EfficientNet-B5 with mixed precision training
+"""
 
 IMAGE_STANDARD_TEMPLATE = """
 import torch
@@ -16,9 +24,16 @@ from tqdm import tqdm
 import warnings
 warnings.filterwarnings('ignore')
 
-# Device configuration
+# Device configuration with GPU preference
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {{device}}")
+if torch.cuda.is_available():
+    print(f"GPU: {{torch.cuda.get_device_name(0)}}")
+    print(f"GPU Memory: {{torch.cuda.get_device_properties(0).total_memory / 1e9:.2f}} GB")
+    # Enable TF32 for faster training on Ampere GPUs
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    torch.backends.cudnn.benchmark = True
 
 # Custom Dataset
 class ImageDataset(Dataset):
@@ -79,16 +94,25 @@ class ImageDataset(Dataset):
             label = row[self.target_col]
             return image, label
 
-# Augmentation pipeline
+# =============================================================================
+# HEAVY AUGMENTATION PIPELINE (Melanoma-style for medical/rare class detection)
+# =============================================================================
 train_transform = A.Compose([
     A.Resize({image_size}, {image_size}),
     A.HorizontalFlip(p=0.5),
     A.VerticalFlip(p=0.5),
     A.RandomRotate90(p=0.5),
-    A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, rotate_limit=45, p=0.5),
+    A.Transpose(p=0.5),
+    A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.15, rotate_limit=45, p=0.5),
     A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
     A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, p=0.5),
-    A.CoarseDropout(max_holes=8, max_height=32, max_width=32, p=0.5),
+    A.OneOf([
+        A.OpticalDistortion(p=0.3),
+        A.GridDistortion(p=0.3),
+        A.ElasticTransform(p=0.3),
+    ], p=0.3),
+    A.CoarseDropout(max_holes=8, max_height=32, max_width=32, min_holes=4, 
+                   min_height=16, min_width=16, fill_value=0, p=0.5),
     A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ToTensorV2()
 ])
@@ -488,15 +512,13 @@ print("Training and inference complete!")
 
 def get_image_template(resource_constrained: bool = False) -> str:
     """
-    Get appropriate image template based on resource constraints.
+    Get image template.
     
     Args:
-        resource_constrained: Whether to use resource-constrained variant
+        resource_constrained: Ignored - always use full template
         
     Returns:
         Template string
     """
-    if resource_constrained:
-        return IMAGE_RESOURCE_CONSTRAINED_TEMPLATE
-    else:
-        return IMAGE_STANDARD_TEMPLATE
+    # Always use the full template - LLM optimizes as needed
+    return IMAGE_STANDARD_TEMPLATE

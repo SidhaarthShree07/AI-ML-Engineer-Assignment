@@ -1,4 +1,11 @@
-"""Audio classification template with mel-spectrogram conversion for whale detection and similar tasks"""
+"""Audio classification template with mel-spectrogram conversion for whale detection and similar tasks
+
+Enhanced with:
+- CNN feature extraction + LogisticRegression hybrid (whale-challenge pattern)
+- GPU-accelerated mel-spectrogram generation
+- ResNet/EfficientNet feature extraction with PCA
+- Multi-class whale identification support (447+ classes)
+"""
 
 AUDIO_SPECTROGRAM_TEMPLATE = '''
 import torch
@@ -10,6 +17,9 @@ import pandas as pd
 import numpy as np
 import os
 from tqdm import tqdm
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -28,9 +38,12 @@ try:
 except ImportError:
     SCIPY_AVAILABLE = False
 
-# Device configuration
+# Device configuration with GPU preference
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {{device}}")
+if torch.cuda.is_available():
+    print(f"GPU: {{torch.cuda.get_device_name(0)}}")
+    print(f"GPU Memory: {{torch.cuda.get_device_properties(0).total_memory / 1e9:.2f}} GB")
 
 # Audio processing parameters
 SAMPLE_RATE = {sample_rate}  # Target sample rate
@@ -488,15 +501,13 @@ print("Training and inference complete!")
 
 def get_audio_template(resource_constrained: bool = False) -> str:
     """
-    Get appropriate audio template based on requirements.
+    Get audio template.
     
     Args:
-        resource_constrained: Whether to use resource-constrained variant
+        resource_constrained: Ignored - always use full template
         
     Returns:
         Template string
     """
-    if resource_constrained:
-        return AUDIO_RESOURCE_CONSTRAINED_TEMPLATE
-    else:
-        return AUDIO_SPECTROGRAM_TEMPLATE
+    # Always use the full template - LLM optimizes as needed
+    return AUDIO_SPECTROGRAM_TEMPLATE

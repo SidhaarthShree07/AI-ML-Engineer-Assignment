@@ -491,15 +491,13 @@ print("Training and inference complete")
 
 def get_multimodal_template(resource_constrained: bool = False) -> str:
     """
-    Get appropriate multimodal template based on resource constraints.
+    Get multimodal template.
     
     Args:
-        resource_constrained: Whether to use resource-constrained variant
+        resource_constrained: Ignored - always use full template
         
     Returns:
         Template string
     """
-    if resource_constrained:
-        return MULTIMODAL_RESOURCE_CONSTRAINED_TEMPLATE
-    else:
-        return MULTIMODAL_DUAL_ENCODER_TEMPLATE
+    # Always use the full template - LLM optimizes as needed
+    return MULTIMODAL_DUAL_ENCODER_TEMPLATE

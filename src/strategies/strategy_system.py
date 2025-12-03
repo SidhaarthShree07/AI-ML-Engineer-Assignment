@@ -45,16 +45,20 @@ class StrategySystem:
         """
         modality_lower = modality.lower()
         
-        if modality_lower == Modality.TABULAR:
+        # Use string values for comparison, not enum objects
+        if modality_lower == Modality.TABULAR.value:
             return self.get_tabular_strategy(profile)
-        elif modality_lower == Modality.IMAGE:
+        elif modality_lower == Modality.IMAGE.value:
             return self.get_image_strategy(profile)
-        elif modality_lower == Modality.TEXT:
+        elif modality_lower == Modality.TEXT.value:
             return self.get_text_strategy(profile)
-        elif modality_lower == Modality.TIME_SERIES:
+        elif modality_lower in (Modality.TIME_SERIES.value, Modality.SEQ2SEQ.value, 'seq2seq'):
+            # seq2seq covers text normalization, translation, time series forecasting
             return self.get_seq2seq_strategy(profile)
-        elif modality_lower == Modality.MULTIMODAL:
+        elif modality_lower == Modality.MULTIMODAL.value:
             return self.get_multimodal_strategy(profile)
+        elif modality_lower in (Modality.AUDIO.value, 'audio'):
+            return self.get_audio_strategy(profile)
         else:
             raise ValueError(
                 f"Unsupported modality: {modality}. "
@@ -387,6 +391,56 @@ class StrategySystem:
             gradient_clip_norm=1.0,
             model_size="medium",
             augmentation_strength=1.0
+        )
+    
+    def get_audio_strategy(self, profile: DatasetProfile) -> Strategy:
+        """
+        Get audio-specific strategy for audio classification.
+        
+        Uses spectrogram-based approach with CNN backbone.
+        Suitable for whale detection, speech recognition, etc.
+        
+        Args:
+            profile: Dataset profile
+            
+        Returns:
+            Audio strategy configuration
+        """
+        # Adaptive loss selection
+        loss_function = self._select_loss_function(profile)
+        
+        return Strategy(
+            modality=Modality.AUDIO,
+            primary_model="CNN_Spectrogram",
+            fallback_model="MFCC_RandomForest",
+            preprocessing=["spectrogram", "normalize"],
+            augmentation={
+                "transforms": [
+                    "time_stretch",
+                    "pitch_shift",
+                    "add_noise"
+                ]
+            },
+            loss_function=loss_function,
+            optimizer="AdamW",
+            batch_size=32,
+            max_epochs=50,
+            early_stopping_patience=5,
+            hyperparameters={
+                "sample_rate": 22050,
+                "n_fft": 2048,
+                "hop_length": 512,
+                "n_mels": 128,
+                "num_workers": 4
+            },
+            resource_constraints=self.resource_constraints,
+            learning_rate=1e-4,
+            weight_decay=0.01,
+            dropout=0.3,
+            mixed_precision=True,
+            gradient_accumulation_steps=1,
+            gradient_clip_norm=1.0,
+            model_size="medium"
         )
     
     def _select_loss_function(self, profile: DatasetProfile) -> str:

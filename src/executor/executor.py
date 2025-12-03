@@ -89,7 +89,8 @@ class Executor:
             logger.error(f"Docker build error: {e}")
             self.docker_config.use_docker = False
     
-    def execute_code(self, code: str, timeout: Optional[int] = None, show_progress: bool = True) -> ExecutionResult:
+    def execute_code(self, code: str, timeout: Optional[int] = None, show_progress: bool = True, generate_only: bool = False) -> ExecutionResult:
+        # generate_only is ignored for local/Docker executor (only applies to cloud)
         start_time = time.time()
         if self.docker_config.use_docker:
             return self._execute_in_docker(code, timeout, show_progress, start_time)
