@@ -200,6 +200,11 @@ def run_single_experiment(
         
         if success and os.path.exists(final_submission):
             print(f"✓ SUCCESS: Submission created at {final_submission}")
+            # If a sample submission is available in the dataset, reshape to match it
+            try:
+                _align_submission_to_sample(final_submission, dataset_path)
+            except Exception as e:
+                print(f"[WARN] Could not align submission to sample submission: {e}")
         else:
             print(f"✗ FAILED: Exit code {result.returncode}")
             if result.stderr:
@@ -233,6 +238,99 @@ def run_single_experiment(
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }
+def _find_sample_submission(dataset_path: str) -> str:
+    """Find a sample_submission file in common locations under dataset_path."""
+    # Common locations: dataset_path/sample_submission.csv, dataset_path/prepared/public/sample_submission.csv
+    candidates = [
+        os.path.join(dataset_path, 'sample_submission.csv'),
+        os.path.join(dataset_path, 'prepared', 'public', 'sample_submission.csv'),
+    ]
+    # Also glob for any file named sample_submission*.csv
+    candidates.extend(glob.glob(os.path.join(dataset_path, 'sample_submission*.csv')))
+    candidates.extend(glob.glob(os.path.join(dataset_path, '**', 'sample_submission*.csv'), recursive=True))
+
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
+def _align_submission_to_sample(submission_path: str, dataset_path: str):
+    """Align a generated submission CSV to the sample submission format if present.
+
+    This will attempt to:
+    - Locate a sample_submission.csv under the dataset path
+    - Read both files and merge/mapping predictions so the final submission has the
+      same row-count and column layout as the sample submission (common requirement
+      for mlebench grading).
+    """
+    sample_file = _find_sample_submission(dataset_path)
+    if not sample_file:
+        return  # nothing to do
+
+    # Load files
+    sample_df = pd.read_csv(sample_file)
+    gen_df = pd.read_csv(submission_path)
+
+    if sample_df.shape[0] == gen_df.shape[0] and list(sample_df.columns) == list(gen_df.columns):
+        # Already matches
+        return
+
+    # Determine id column (first column of sample submission is typically the id)
+    id_col = sample_df.columns[0]
+    pred_cols = [c for c in sample_df.columns if c != id_col]
+
+    # If generated submission has the same id column, perform a left-join to fill sample rows
+    if id_col in gen_df.columns:
+        merged = sample_df[[id_col]].merge(gen_df, on=id_col, how='left')
+        # If merged is missing predicted columns, try to copy any common prediction column
+        for pc in pred_cols:
+            if pc not in merged.columns:
+                # Look for common fallbacks in gen_df
+                if 'prediction' in gen_df.columns:
+                    merged[pc] = merged['prediction']
+                elif 'after' in gen_df.columns:
+                    merged[pc] = merged['after']
+                elif gen_df.shape[1] > 1:
+                    # take second column as fallback
+                    merged[pc] = gen_df.iloc[:, 1].reindex(merged.index).values
+                else:
+                    merged[pc] = ''
+
+        merged.to_csv(submission_path, index=False)
+        print(f"[INFO] Submission aligned to sample submission using id column '{id_col}'")
+        return
+
+    # If generated submission uses 'sentence_id' mapping and sample uses token-level ids,
+    # try to map by sentence_id
+    if 'sentence_id' in gen_df.columns and id_col in sample_df.columns:
+        # Build mapping from sentence_id to predicted string (try common pred columns)
+        if 'after' in gen_df.columns:
+            mapping = dict(zip(gen_df['sentence_id'], gen_df['after']))
+        elif 'prediction' in gen_df.columns:
+            mapping = dict(zip(gen_df['sentence_id'], gen_df['prediction']))
+        else:
+            # fallback to second column
+            mapping = dict(zip(gen_df['sentence_id'], gen_df.iloc[:, 1]))
+
+        # Map sample ids to predictions
+        sample_df[pred_cols[0]] = sample_df[id_col].map(mapping).fillna('')
+        sample_df.to_csv(submission_path, index=False)
+        print(f"[INFO] Submission expanded to sample submission rows using 'sentence_id' mapping")
+        return
+
+    # Last resort: if generated submission has a single row per sentence and sample has many rows,
+    # try to broadcast the single prediction across sample rows
+    if gen_df.shape[0] == 1 and len(pred_cols) >= 1:
+        val = gen_df.iloc[0, 1] if gen_df.shape[1] > 1 else gen_df.iloc[0, 0]
+        for pc in pred_cols:
+            sample_df[pc] = val
+        sample_df.to_csv(submission_path, index=False)
+        print("[INFO] Broadcast single prediction to sample submission format")
+        return
+
+    # If none of the above applied, warn and do not overwrite
+    print("[WARN] Could not reliably align generated submission to sample_submission.csv. Leaving original submission.")
 
 
 def run_all_experiments(

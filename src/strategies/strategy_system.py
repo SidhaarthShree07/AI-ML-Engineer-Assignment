@@ -28,6 +28,26 @@ class StrategySystem:
             resource_constraints: Resource limits for execution
         """
         self.resource_constraints = resource_constraints or ResourceConstraints()
+
+    def _adjust_epochs(self, max_epochs: int, profile: DatasetProfile) -> int:
+        """
+        Adjust max_epochs based on dataset size to avoid overtraining large datasets.
+
+        Rules:
+        - If >= 500k samples: cap to 3
+        - If >= 100k samples: cap to 5
+        - Otherwise keep provided max_epochs
+        """
+        try:
+            n = int(profile.num_samples) if profile and profile.num_samples is not None else 0
+        except Exception:
+            n = 0
+
+        if n >= 500_000:
+            return min(max_epochs, 3)
+        if n >= 100_000:
+            return min(max_epochs, 5)
+        return max_epochs
     
     def get_strategy(self, modality: str, profile: DatasetProfile) -> Strategy:
         """
@@ -122,6 +142,7 @@ class StrategySystem:
         # Adaptive loss selection based on class imbalance
         loss_function = self._select_loss_function(profile)
         
+        max_epochs = self._adjust_epochs(max_epochs, profile)
         return Strategy(
             modality=Modality.TABULAR,
             primary_model=primary_model,
@@ -198,7 +219,7 @@ class StrategySystem:
             loss_function=loss_function,
             optimizer="AdamW",
             batch_size=batch_size,
-            max_epochs=50,
+            max_epochs=self._adjust_epochs(50, profile),
             early_stopping_patience=5,
             hyperparameters={
                 "pretrained": True,
@@ -256,7 +277,7 @@ class StrategySystem:
             loss_function=loss_function,
             optimizer="AdamW",
             batch_size=batch_size,
-            max_epochs=10,
+            max_epochs=self._adjust_epochs(10, profile),
             early_stopping_patience=3,
             hyperparameters={
                 "pretrained": "distilbert-base-uncased",
@@ -293,6 +314,7 @@ class StrategySystem:
         Returns:
             Seq2seq strategy configuration
         """
+        max_epochs = self._adjust_epochs(20, profile)
         return Strategy(
             modality=Modality.TIME_SERIES,
             primary_model="T5-Small",
@@ -302,7 +324,7 @@ class StrategySystem:
             loss_function="CrossEntropy",
             optimizer="AdamW",
             batch_size=16,
-            max_epochs=20,
+            max_epochs=max_epochs,
             early_stopping_patience=5,
             hyperparameters={
                 "max_source_length": 128,
@@ -359,7 +381,7 @@ class StrategySystem:
             loss_function=loss_function,
             optimizer="AdamW",
             batch_size=32,
-            max_epochs=50,
+            max_epochs=self._adjust_epochs(50, profile),
             early_stopping_patience=5,
             hyperparameters={
                 "image_encoder": {
@@ -424,7 +446,7 @@ class StrategySystem:
             loss_function=loss_function,
             optimizer="AdamW",
             batch_size=32,
-            max_epochs=50,
+            max_epochs=self._adjust_epochs(50, profile),
             early_stopping_patience=5,
             hyperparameters={
                 "sample_rate": 22050,

@@ -1,12 +1,3 @@
-"""Text classification strategy template with DistilBERT and TF-IDF fallback
-
-Enhanced with:
-- Character n-grams (2-6) for writing style capture (spooky-author pattern)
-- CalibratedClassifierCV for probability calibration
-- Multi-class probability output (EAP/HPL/MWS format)
-- GPU acceleration for transformer models
-"""
-
 TEXT_DISTILBERT_TEMPLATE = """
 import torch
 import torch.nn as nn

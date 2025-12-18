@@ -99,6 +99,7 @@ packages = [
     'matplotlib',
     'seaborn',
     'tqdm',
+    'sentencepiece'
 ]
 
 for pkg in packages:

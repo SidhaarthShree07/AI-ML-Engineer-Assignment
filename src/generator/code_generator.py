@@ -720,7 +720,12 @@ class HybridCodeGenerator:
                         return filled
                     except KeyError:
                         pass  # Try safe_substitute below
-            
+            # If we reach here, some placeholders remain missing. It's common for templates
+            # to include escaped literal braces via '{{' and '}}' (intended to become '{' and '}').
+            # Ensure those are unescaped before attempting safe substitution so dicts and
+            # other literal-brace usages become valid Python syntax in the output.
+            template = template.replace('{{', '{').replace('}}', '}')
+
             # Try to fill with safe_substitute approach (uses $variable instead of {variable})
             import string
             try:
