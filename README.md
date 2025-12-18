@@ -50,7 +50,9 @@ python run_mlebench_eval.py --output_dir ./mlebench_results
 
 ### Evaluation Report
 
-The following table aggregates the CLI-style `mlebench grade-sample` JSON outputs into a single table (one row per competition). Values are taken from existing evaluation outputs under `mlebench_results`.
+<img width="2046" height="305" alt="image" src="https://github.com/user-attachments/assets/ca451df3-6555-47b7-9323-ef2e41b4a1f3" />
+
+The following table aggregates the CLI-style `mlebench grade-sample` JSON outputs into a single table (detailed version). Values are taken from existing evaluation outputs under `mlebench_results`.
 
 | competition_id | seed | score | gold_threshold | silver_threshold | bronze_threshold | median_threshold | any_medal | gold_medal | silver_medal | bronze_medal | above_median | submission_exists | valid_submission | is_lower_better | submission_path |
 |---|:---:|---:|---:|---:|---:|---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---:|
