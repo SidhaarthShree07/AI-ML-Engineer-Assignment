@@ -52,37 +52,29 @@ python run_mlebench_eval.py --output_dir ./mlebench_results
 
 #### Competition: Tabular Playground Series - May 2022
 
-**Run Results (3 Seeds):**
+### Evaluation Report
 
-| Seed | Score | Medal |
-|:----:|:-----:|:-----:|
-| 42 | 0.99518 | None |
-| 43 | 0.98519 | None |
-| 44 | 0.99163 | None |
+The following table aggregates the CLI-style `mlebench grade-sample` JSON outputs into a single table (one row per competition). Values are taken from existing evaluation outputs under `mlebench_results`.
 
-**Summary:**
+| competition_id | score | gold_threshold | silver_threshold | bronze_threshold | median_threshold | any_medal | gold_medal | silver_medal | bronze_medal | above_median | submission_exists | valid_submission | is_lower_better | created_at | submission_path |
+|---|---:|---:|---:|---:|---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---:|---:|
+| tabular-playground-series-may-2022 | 0.99518 | 0.99823 | 0.99822 | 0.99818 | 0.972675 | false | false | false | false | true | true | true | false | 2025-12-03T10:35:56.339621 | mlebench_results/tabular-playground-series-may-2022/seed_42/submission.csv |
+| tabular-playground-series-may-2022 | 0.98519 | 0.99823 | 0.99822 | 0.99818 | 0.972675 | false | false | false | false | true | true | true | false | 2025-12-03T10:35:56.339621 | mlebench_results/tabular-playground-series-may-2022/seed_43/submission.csv |
+| tabular-playground-series-may-2022 | 0.99163 | 0.99823 | 0.99822 | 0.99818 | 0.972675 | false | false | false | false | true | true | true | false | 2025-12-03T10:35:56.339621 | mlebench_results/tabular-playground-series-may-2022/seed_44/submission.csv |
+| spooky-author-identification | 0.32924 | 0.16506 | 0.26996 | 0.29381 | 0.418785 | false | false | false | false | true | true | true | true | 2025-12-18T08:08:31.236541 | mlebench_results/spooky-author-identification/seed_40/submission.csv |
+| spooky-author-identification | 0.37119 | 0.16506 | 0.26996 | 0.29381 | 0.418785 | false | false | false | false | true | true | true | true | 2025-12-18T08:10:35.972899 | mlebench_results/spooky-author-identification/seed_41/submission.csv |
+| spooky-author-identification | 0.34312 | 0.16506 | 0.26996 | 0.29381 | 0.418785 | false | false | false | false | true | true | true | true | 2025-12-18T08:11:21.347706 | mlebench_results/spooky-author-identification/seed_42/submission.csv |
+|  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+|  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
 
-| Metric | Value |
-|:-------|------:|
-| Total Runs | 3 |
-| Successful Submissions | 3/3 (100%) |
-| Best Score | 0.99518 |
-| Mean Score | 0.99067 |
-| Total Runtime | ~13 hours |
-| Hardware | CPU only |
+> To reproduce the per-submission report locally, run for each submission:
 
-**Medal Thresholds:**
+```bash
+mlebench grade-sample <PATH_TO_SUBMISSION> <competition_name>
+# Example:
+mlebench grade-sample mlebench_results/tabular-playground-series-may-2022/seed_43/submission.csv tabular-playground-series-may-2022
+```
 
-| Medal | Threshold Required | Our Best Score | Gap |
-|:-----:|:------------------:|:--------------:|:---:|
-| 🥇 Gold | 0.99823 | 0.99518 | -0.00305 |
-| 🥈 Silver | 0.99822 | 0.99518 | -0.00304 |
-| 🥉 Bronze | 0.99818 | 0.99518 | -0.00300 |
-| ✅ Above Median | 0.97268 | 0.99518 | +0.02250 |
-
-> **Result:** Our best score (0.99518) is **above median** but falls short of bronze by ~0.003. With GPU acceleration and longer training time, scores could potentially improve.
-
----
 
 ### ⚠️ Important Note on Remaining Datasets
 

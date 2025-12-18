@@ -17,8 +17,9 @@ import numpy as np
 import os
 import torch
 import torch.nn as nn
+import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from transformers import T5Tokenizer, T5ForConditionalGeneration, AdamW, get_linear_schedule_with_warmup
+from transformers import T5Tokenizer, T5ForConditionalGeneration, get_linear_schedule_with_warmup
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn.utils.rnn import pad_sequence
 from functools import partial
@@ -203,7 +204,7 @@ test_loader = DataLoader(test_dataset, batch_size={batch_size}*2, shuffle=False,
                          collate_fn=collate_with_padding, num_workers=0)
 
 # Training setup
-optimizer = AdamW(model.parameters(), lr={learning_rate}, weight_decay={weight_decay})
+optimizer = optim.AdamW(model.parameters(), lr={learning_rate}, weight_decay={weight_decay})
 total_steps = len(train_loader) * {max_epochs}
 scheduler = get_linear_schedule_with_warmup(optimizer, 
                                             num_warmup_steps=total_steps // 10,

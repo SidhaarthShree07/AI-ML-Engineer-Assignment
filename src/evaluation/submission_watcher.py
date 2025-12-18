@@ -427,7 +427,7 @@ def run_with_watcher(
     data_root: str,
     output_root: str,
     max_runtime_hours: float = 4.0,
-    gemini_model: str = "gemini-2.5-pro",
+    gemini_model: str = "gemini-2.5-flash-lite",
     competitions: List[str] = None,
     seeds: List[int] = None,
     cloud_mode: bool = True

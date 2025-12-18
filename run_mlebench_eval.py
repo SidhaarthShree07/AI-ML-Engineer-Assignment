@@ -92,7 +92,7 @@ def run_single_experiment(
     data_root: str,
     output_root: str,
     max_runtime_hours: float = 4.0,
-    gemini_model: str = "gemini-2.5-pro",
+    gemini_model: str = "gemini-2.5-flash-lite",
     cloud_mode: bool = False,
     use_mlebench_data: bool = True
 ) -> Dict:
@@ -239,7 +239,7 @@ def run_all_experiments(
     data_root: str,
     output_root: str,
     max_runtime_hours: float = 4.0,
-    gemini_model: str = "gemini-2.5-pro",
+    gemini_model: str = "gemini-2.5-flash-lite",
     competitions: List[str] = None,
     seeds: List[int] = None,
     cloud_mode: bool = False
@@ -377,7 +377,7 @@ def main():
     parser.add_argument(
         "--gemini_model",
         type=str,
-        default="gemini-2.5-pro",
+        default="gemini-2.5-flash-lite",
         help="Gemini model to use"
     )
     parser.add_argument(

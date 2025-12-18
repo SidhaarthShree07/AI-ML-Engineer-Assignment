@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class GeminiClient:
     """Wrapper for Gemini API with error handling and retry logic"""
     
-    def __init__(self, api_key: Optional[str] = None, model: str = "gemini-2.5-pro"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "gemini-2.5-flash-lite"):
         """Initialize Gemini client
         
         Args:

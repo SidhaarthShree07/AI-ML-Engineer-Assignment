@@ -183,7 +183,7 @@ class AgentConfig:
     num_seeds: int = 3
     seed: int = 42  # Random seed for reproducibility
     execution_mode: str = "normal"  # "normal" or "cloud"
-    gemini_model: str = "gemini-2.5-pro"
+    gemini_model: str = "gemini-2.5-flash-lite"
     gemini_api_key: Optional[str] = None
     eval_mode: bool = False
     competitions: List[str] = field(default_factory=list)

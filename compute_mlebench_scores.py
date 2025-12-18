@@ -129,7 +129,8 @@ def grade_and_compute_scores(
         "the-icml-2013-whale-challenge-right-whale-redux"
     ]
     
-    SEEDS = [0, 1, 2]
+    # Use the actual run seeds produced by the evaluation (seed 40/41/42)
+    SEEDS = [40, 41, 42]
     
     per_competition_scores = []
     all_medal_indicators = []  # List of 0 or 100 for each run

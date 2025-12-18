@@ -75,7 +75,24 @@ class DatasetHandler:
         self.structure: Optional[DatasetStructure] = None
         
         logger.info(f"Initializing DatasetHandler for: {dataset_path}")
-        
+        # If the provided path doesn't contain train/test but its parent does,
+        # fall back to the parent directory. This makes the handler tolerant of
+        # users passing a common root (e.g., data_test) instead of a competition
+        # subfolder.
+        try:
+            has_train_or_test = any((self.dataset_path / p).exists() for p in ["train.csv", "test.csv", "train", "test"])
+        except Exception:
+            has_train_or_test = False
+
+        if not has_train_or_test and self.dataset_path.parent and self.dataset_path.parent != self.dataset_path:
+            parent = self.dataset_path.parent
+            parent_has = any((parent / p).exists() for p in ["train.csv", "test.csv", "train", "test"])
+            if parent_has:
+                logger.warning(
+                    f"No train/test found in {self.dataset_path}; falling back to parent directory {parent} for dataset discovery"
+                )
+                self.dataset_path = parent
+
         # Detect dataset structure
         self.structure = self._detect_structure()
         logger.info(f"Detected structure type: {self.structure.structure_type}")

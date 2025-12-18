@@ -10,8 +10,9 @@ Enhanced with:
 TEXT_DISTILBERT_TEMPLATE = """
 import torch
 import torch.nn as nn
+import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, AdamW, get_linear_schedule_with_warmup
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, get_linear_schedule_with_warmup
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -113,7 +114,7 @@ val_loader = DataLoader(val_dataset, batch_size={batch_size}, shuffle=False, num
 test_loader = DataLoader(test_dataset, batch_size={batch_size}, shuffle=False, num_workers=2, pin_memory=True)
 
 # Optimizer and scheduler
-optimizer = AdamW(model.parameters(), lr={learning_rate}, weight_decay={weight_decay})
+optimizer = optim.AdamW(model.parameters(), lr={learning_rate}, weight_decay={weight_decay})
 total_steps = len(train_loader) * {max_epochs}
 scheduler = get_linear_schedule_with_warmup(
     optimizer,
@@ -415,7 +416,7 @@ TEXT_RESOURCE_CONSTRAINED_TEMPLATE = """
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, AdamW
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -487,7 +488,7 @@ val_loader = DataLoader(val_dataset, batch_size={batch_size}, shuffle=False)
 test_loader = DataLoader(test_dataset, batch_size={batch_size}, shuffle=False)
 
 # Optimizer
-optimizer = AdamW(model.parameters(), lr={learning_rate}, weight_decay={weight_decay})
+optimizer = optim.AdamW(model.parameters(), lr={learning_rate}, weight_decay={weight_decay})
 
 # Training loop with gradient accumulation
 best_val_loss = float('inf')
